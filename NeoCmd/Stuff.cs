@@ -280,9 +280,12 @@ namespace Neo.PowerShell
 		/// <param name="file">Datei die geöffnet werden soll.</param>
 		/// <param name="notify">Zugriff auf die UI.</param>
 		/// <param name="compressed">Soll die Datei entpackt werden.</param>
-		public static Stream OpenRead(this FileInfo file, CmdletNotify notify, CompressMode compressed = CompressMode.Stored)
+		public static Stream OpenRead(this FileInfo file, CmdletNotify notify, CompressMode compressed = CompressMode.Stored, bool allowEmpty = false)
 		{
-			var src = notify.SafeIO(() => OpenRead(file), $"Datei '{file.Name}' kann nicht geöffnet werden.");
+			var desc = $"Datei '{file.Name}' kann nicht geöffnet werden.";
+			var src = allowEmpty ?
+				notify.SafeOpen(OpenRead, file, desc) :
+				notify.SafeIO(() => OpenRead(file), desc);
 
 			// Entpacke die Daten automatisch
 			if (compressed == CompressMode.Compressed || (compressed == CompressMode.Auto && IsGZipFile(file.Name)))

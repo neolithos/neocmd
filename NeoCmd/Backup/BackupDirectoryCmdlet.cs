@@ -12,7 +12,7 @@ namespace Neo.PowerShell.Backup
 {
 	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
-	[Cmdlet(VerbsData.Backup, "directory")]
+	[Cmdlet(VerbsData.Backup, "Directory")]
 	public sealed class BackupDirectoryCmdlet : NeoCmdlet
 	{
 		#region -- ProcessRecord ----------------------------------------------------------
@@ -124,7 +124,7 @@ namespace Neo.PowerShell.Backup
 							switch (c.State)
 							{
 								case FileIndexState.Modified: // Kopiere die Datei
-									using (var src = Stuff.OpenRead(new FileInfo(Path.Combine(Source, c.RelativePath)), Notify))
+									using (var src = Stuff.OpenRead(new FileInfo(Path.Combine(Source, c.RelativePath)), Notify, allowEmpty: true))
 									{
 										if (c.ArchiveName == zipArchiveName)
 											ZipFileItem(Notify, bar, src, zip, c);
@@ -176,8 +176,9 @@ namespace Neo.PowerShell.Backup
 					else // Erzeuge nur eine Löschdatei
 					{
 						bar.StatusText = "Nicht mehr benötigte Archive werden gelöscht...";
-						using (var sw = new StreamWriter(Stuff.OpenWrite(new FileInfo(Path.Combine(targetPath.FullName, "index_rm.txt.gz")), Notify, CompressMode.Auto)))
+						using (var sw = new StreamWriter(Stuff.OpenWrite(new FileInfo(Path.Combine(targetPath.FullName, "index_rm.txt")), Notify, CompressMode.Stored)))
 						{
+							sw.BaseStream.Position = sw.BaseStream.Length;
 							foreach (var c in archiveUsed)
 								if (c.Value == 0)
 									sw.WriteLine(c.Key);

@@ -60,10 +60,10 @@ namespace Neo.PowerShell
 			}
 
 			// Restzeit Ermittlung
-			if (updateTime != null)
+			if (updateTime != null && position > 0)
 			{
 				var tmp1 = unchecked((int)((maximum - position) * updateTime.ElapsedMilliseconds / position / 1000));
-				if (tmp1 != lastSeconds)
+				if (Math.Abs(tmp1 - lastSeconds) > 15)
 				{
 					lastSeconds = tmp1;
 					updateUI = true;
@@ -160,6 +160,30 @@ namespace Neo.PowerShell
 			SafeIO(() => { o = func(); }, actionDescription);
 			return o == null ? default(T) : (T)o;
 		} // proc SafeIO
+
+		public Stream SafeOpen(Func<FileInfo, Stream> func, FileInfo file, string actionDescription)
+		{
+			while (true)
+				try
+				{
+					return func(file);
+				}
+				catch (IOException e)
+				{
+					var choices = new Collection<ChoiceDescription>();
+					choices.Add(new ChoiceDescription("&Wiederholen"));
+					choices.Add(new ChoiceDescription("&Überspringen"));
+					choices.Add(new ChoiceDescription("&Abbrechen"));
+					switch (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0))
+					{
+						case 1:
+							return new MemoryStream(0);
+						case 2:
+							Abort();
+							break;
+					}
+				}
+		} // func SafeOpen
 
 		/// <summary>Erzeugt einen Status.</summary>
 		/// <param name="activity">Überschrift für die Operation</param>

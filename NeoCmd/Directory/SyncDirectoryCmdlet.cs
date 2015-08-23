@@ -14,7 +14,7 @@ namespace Neo.PowerShell.Directory
 
 		private void WriteLine(string sText)
 		{
-			if (this.Verbose)
+			if (this.Info)
 				base.Host.UI.WriteLine(sText);
 		} // proc WriteLine
 
@@ -151,10 +151,9 @@ namespace Neo.PowerShell.Directory
 		public string Target { get; set; }
 
 		[
-		Parameter(Position = 2, Mandatory = false),
-		Alias("info")
+		Parameter(Position = 2, Mandatory = false)
 		]
-		public SwitchParameter Verbose { get; set; } = false;
+		public SwitchParameter Info { get; set; } = false;
 
 		[
 		Parameter(Mandatory = false, HelpMessage = "Filter für Dateien, die ausgeschlossen werden sollen.")

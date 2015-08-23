@@ -19,6 +19,8 @@ namespace Neo.PowerShell.Backup
 
 		protected override void ProcessRecord()
 		{
+			const string zipArchivePlaceHolder = "#";
+
 			using (var bar = Notify.CreateStatus("Erzeuge Backup", $"Sicherung von {Source}..."))
 			{
 				var totalBytes = 0L;
@@ -37,9 +39,6 @@ namespace Neo.PowerShell.Backup
 					index.ReadIndex(Notify, targetIndex);
 				else
 					index.ReadIndex(Notify, ShadowIndex);
-
-				// Erzeuge den Archivnamen für die neuen Dateien
-				var zipArchiveName = Guid.NewGuid().ToString("N") + ".zip";
 
 				// Gleiche die Daten ab und erzeuge die Statistik
 				bar.StatusText = "Vergleiche Dateien mit Index...";
@@ -64,7 +63,7 @@ namespace Neo.PowerShell.Backup
 							if (c.FileInfo.Length < ZipArchiveBorder)
 							{
 								itemsZipped++;
-								indexItem.ArchiveName = zipArchiveName;
+								indexItem.ArchiveName = zipArchivePlaceHolder;
 							}
 							else
 							{
@@ -103,18 +102,11 @@ namespace Neo.PowerShell.Backup
 				// Schreibe das neue Archiv
 				if (itemsModified > 0)
 				{
+					string currentArchiveName = null;
 					FileWrite zipStream = null;
 					ZipOutputStream zip = null;
 					try
 					{
-						if (itemsZipped > 0)
-						{
-							zipStream = new FileWrite(Notify, new FileInfo(Path.Combine(targetPath.FullName, zipArchiveName)), true, CompressMode.Stored);
-							zip = new ZipOutputStream(zipStream.Stream);
-							zip.UseZip64 = UseZip64.On;
-							zip.SetLevel(5);
-						}
-
 						bar.StartRemaining();
 						bar.Maximum = totalBytes;
 
@@ -126,8 +118,27 @@ namespace Neo.PowerShell.Backup
 								case FileIndexState.Modified: // Kopiere die Datei
 									using (var src = Stuff.OpenRead(new FileInfo(Path.Combine(Source, c.RelativePath)), Notify, allowEmpty: true))
 									{
-										if (c.ArchiveName == zipArchiveName)
+										if (c.ArchiveName == zipArchivePlaceHolder)
+										{
+											// Schließe das Archiv, wenn genug Inhalt
+											if (zipStream != null && zipStream.Stream.Position > 512 << 20)
+											{
+												zipStream.Commit();
+												CloseZipStream(zipStream, zip);
+												currentArchiveName = null;
+											}
+
+											// Erzeuge das Archiv
+											if (currentArchiveName == null)
+											{
+												currentArchiveName = Guid.NewGuid().ToString("N") + ".zip";
+												CreateZipStream(targetPath, currentArchiveName, out zipStream, out zip);
+											}
+
+											// Kopiere die Daten
 											ZipFileItem(Notify, bar, src, zip, c);
+											c.ArchiveName = currentArchiveName;
+										}
 										else
 											GZipFileItem(Notify, bar, src, targetPath, c);
 									}
@@ -142,17 +153,12 @@ namespace Neo.PowerShell.Backup
 						foreach (var c in removeItems)
 							index.RemoveEntry(c);
 
-						zipStream.Commit();
+						if (zipStream != null)
+							zipStream.Commit();
 					}
 					finally
 					{
-						if (zip != null)
-						{
-							zip.Flush();
-							zip.Dispose();
-						}
-						if (zipStream != null)
-							zipStream.Dispose();
+						CloseZipStream(zipStream, zip);
 					}
 
 					// Schreibe den Index
@@ -187,6 +193,25 @@ namespace Neo.PowerShell.Backup
 				}
 			}
 		} // proc ProcessRecord
+
+		private void CreateZipStream(DirectoryInfo targetPath, string zipArchiveName, out FileWrite zipStream, out ZipOutputStream zip)
+		{
+			zipStream = new FileWrite(Notify, new FileInfo(Path.Combine(targetPath.FullName, zipArchiveName)), true, CompressMode.Stored);
+			zip = new ZipOutputStream(zipStream.Stream);
+			zip.UseZip64 = UseZip64.On;
+			zip.SetLevel(5);
+		} // proc CreateZipStream
+
+		private void CloseZipStream(FileWrite zipStream, ZipOutputStream zip)
+		{
+			if (zip != null)
+			{
+				zip.Flush();
+				zip.Dispose();
+			}
+			if (zipStream != null)
+				zipStream.Dispose();
+		} // proc CloseZipStream
 
 		private void ZipFileItem(CmdletNotify notify, CmdletProgress bar, Stream src, ZipOutputStream zip, FileIndexItem item)
 		{

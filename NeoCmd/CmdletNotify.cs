@@ -25,6 +25,7 @@ namespace Neo.PowerShell
 		private long maximum = 100L;
 		private int lastPercent = -1;
 		private int lastSeconds = -1;
+		private int lastSecondsUpdate = -1;
 
 		private Stopwatch updateTime = null;
 
@@ -60,14 +61,15 @@ namespace Neo.PowerShell
 			}
 
 			// Restzeit Ermittlung
-			if (updateTime != null && position > 0)
+			if (updateTime != null && position > 0 && (lastSecondsUpdate == -1 || Math.Abs(Environment.TickCount - lastSecondsUpdate) > 1000))
 			{
 				var tmp1 = unchecked((int)((maximum - position) * updateTime.ElapsedMilliseconds / position / 1000));
-				if (Math.Abs(tmp1 - lastSeconds) > 15)
+				if (tmp1 != lastSeconds)
 				{
 					lastSeconds = tmp1;
 					updateUI = true;
 				}
+				lastSecondsUpdate = Environment.TickCount;
 			}
 
 			// Schreibe die Informationen

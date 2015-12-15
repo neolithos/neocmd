@@ -7,6 +7,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Neo.PowerShell
@@ -129,21 +130,44 @@ namespace Neo.PowerShell
 		/// <param name="actionDescription">Beschreibung der Operation.</param>
 		public void SafeIO(Action action, string actionDescription)
 		{
-			while (true)
+			const int max = 6;
+			var tries = max;
+			while (tries > 0)
 				try
 				{
 					action();
 					return;
 				}
+				catch (UnauthorizedAccessException)
+				{
+					Thread.Sleep(1000 * max - tries + 1);
+					tries--;
+				}
 				catch (IOException e)
 				{
-					var choices = new Collection<ChoiceDescription>();
-					choices.Add(new ChoiceDescription("&Wiederholen"));
-					choices.Add(new ChoiceDescription("&Abbrechen"));
-					if (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0) == 1)
-						Abort();
+					if (!PromptChoice(actionDescription, e))
+					{
+						Thread.Sleep(1000 * max - tries + 1);
+						tries--;
+					}
 				}
 		} // proc SafeIO
+
+		private bool PromptChoice(string actionDescription, IOException e)
+		{
+			var choices = new Collection<ChoiceDescription>();
+			choices.Add(new ChoiceDescription("&Wiederholen"));
+			choices.Add(new ChoiceDescription("&Abbrechen"));
+			try
+			{
+				if (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0) == 1)
+					Abort();
+
+				return true;
+			}
+			catch (NotImplementedException) { return false; }
+			catch (NotSupportedException) { return false; }
+		} // func PromptChoice
 
 		/// <summary>Bricht die Pipeline ab.</summary>
 		public void Abort()
@@ -165,6 +189,8 @@ namespace Neo.PowerShell
 
 		public Stream SafeOpen(Func<FileInfo, Stream> func, FileInfo file, string actionDescription)
 		{
+			const int max = 6;
+			var tries = max;
 			while (true)
 				try
 				{
@@ -176,13 +202,26 @@ namespace Neo.PowerShell
 					choices.Add(new ChoiceDescription("&Wiederholen"));
 					choices.Add(new ChoiceDescription("&Überspringen"));
 					choices.Add(new ChoiceDescription("&Abbrechen"));
-					switch (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0))
+					try
 					{
-						case 1:
+						switch (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0))
+						{
+							case 1:
+								return new MemoryStream(0);
+							case 2:
+								Abort();
+								break;
+						}
+					}
+					catch (Exception ex) when (ex is NotSupportedException || ex is NotImplementedException)
+					{
+						if (tries > 0)
+						{
+							Thread.Sleep(1000 * max - tries + 1);
+							tries--;
+						}
+						else
 							return new MemoryStream(0);
-						case 2:
-							Abort();
-							break;
 					}
 				}
 		} // func SafeOpen
@@ -191,7 +230,7 @@ namespace Neo.PowerShell
 		/// <param name="activity">Überschrift für die Operation</param>
 		/// <param name="text">Beschreibender Langtext der Operation.</param>
 		/// <returns></returns>
-		public CmdletProgress CreateStatus(string activity, string text) => new CmdletProgress(UI, activity, text);
+		public CmdletProgress CreateStatus(string activity, string text) => new CmdletProgress(UI, activity, String.IsNullOrEmpty(text) ? activity : text);
 
 		public PSHostUserInterface UI => cmdlet.Host.UI;
 	} // class CmdletNotify

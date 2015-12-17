@@ -243,12 +243,16 @@ namespace Neo.PowerShell
 	/// <summary></summary>
 	public class NeoCmdlet : PSCmdlet
 	{
-		private CmdletNotify notify = null;
+		private readonly CmdletNotify notify = null;
+
+		public NeoCmdlet()
+		{
+			notify = new CmdletNotify(this);
+		} // ctor
 
 		protected override void BeginProcessing()
 		{
 			base.BeginProcessing();
-			notify = new CmdletNotify(this);
 		} // proc BeginProcessing
 
 		public CmdletNotify Notify => notify;

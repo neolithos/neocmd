@@ -6,9 +6,13 @@ namespace Neo.PowerShell.Directory
 {
 	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
-	[Cmdlet(VerbsCommon.Clear, "directory")]
+	[Cmdlet(VerbsCommon.Clear, "directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
 	public sealed class CleanDirectoryCmdlet : NeoCmdlet
 	{
+		private long bytesDeleted;
+		private int filesDeleted;
+		private int directoriesDeleted;
+
 		#region -- ProcessRecord ----------------------------------------------------------
 
 		private bool IsOutAged(DateTime dtNow, DateTime dt, TimeSpan t)
@@ -16,7 +20,7 @@ namespace Neo.PowerShell.Directory
 			return dt + t < dtNow;
 		} // func IsOutAged
 
-		private bool CleanDirectoryPath(CmdletNotify notify, CmdletProgress bar, DateTime dtNow, TimeSpan age, DirectoryInfo currentDirecotry, string relativePath)
+		private bool CleanDirectoryPath(CmdletProgress bar, DateTime dtNow, TimeSpan age, DirectoryInfo currentDirecotry, string relativePath)
 		{
 			var empty = true;
 			foreach (var fsi in currentDirecotry.EnumerateFileSystemInfos())
@@ -26,10 +30,12 @@ namespace Neo.PowerShell.Directory
 				var fi = fsi as FileInfo;
 				if (di != null)
 				{
-					if (CleanDirectoryPath(notify, bar, dtNow, age, di, currentRelativePath))
+					if (CleanDirectoryPath(bar, dtNow, age, di, currentRelativePath))
 						try
 						{
-							di.Delete();
+							directoriesDeleted++;
+							if (ShouldProcess(di.FullName, "remove"))
+								DeleteSafe(di.Delete, di.FullName);
 						}
 						catch (IOException)
 						{
@@ -46,7 +52,10 @@ namespace Neo.PowerShell.Directory
 						bar.StatusText = $"Lösche {currentRelativePath}...";
 						try
 						{
-							fi.Delete();
+							bytesDeleted += fi.Length;
+							filesDeleted++;
+							if (ShouldProcess(fi.FullName, "remove"))
+								DeleteSafe(fi.Delete, fi.FullName);
 						}
 						catch (IOException)
 						{
@@ -61,11 +70,28 @@ namespace Neo.PowerShell.Directory
 			return empty;
 		} // proc CleanDirectory
 
+		private void DeleteSafe(Action delete, string fullName)
+		{
+			try
+			{
+				delete();
+			}
+			catch (Exception e)
+			{
+				WriteWarning($"Delete failed: {fullName} ({e.Message})");
+			}
+		} // proc DeleteSafe
+
 		protected override void ProcessRecord()
 		{
-			var notify = new CmdletNotify(this);
-			using (var bar = notify.CreateStatus("Säubere Verzeichnis", $"{Target} wird gesäubert..."))
-				CleanDirectoryPath(notify, bar, DateTime.Now, Age.TotalMilliseconds > 0 ? Age : Age.Negate(), new DirectoryInfo(Target), String.Empty);
+			directoriesDeleted = 0;
+			filesDeleted = 0;
+			bytesDeleted = 0;
+
+			using (var bar = Notify.CreateStatus("Säubere Verzeichnis", $"{Target} wird gesäubert..."))
+				CleanDirectoryPath(bar, DateTime.Now, Age.TotalMilliseconds > 0 ? Age : Age.Negate(), new DirectoryInfo(Target), String.Empty);
+
+			WriteVerbose($"Removed: {directoriesDeleted:N0} directories, {filesDeleted:N0} files, {bytesDeleted >> 10:N0} kiB");
 		} // proc ProcessRecord
 
 		#endregion

@@ -1,21 +1,18 @@
 ﻿using System;
 using System.IO;
 using System.Management.Automation;
-using System.Threading;
 
 namespace Neo.PowerShell.Directory
 {
 	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
-	[Cmdlet(VerbsData.Sync, "directory")]
+	[Cmdlet(VerbsData.Sync, "directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
 	public sealed class SyncDirectoryCmdlet : NeoCmdlet
 	{
-		private readonly CmdletNotify notify;
-
-		public SyncDirectoryCmdlet()
-		{
-			this.notify = new CmdletNotify(this);
-		} // ctor
+		private FileFilterRules rules;
+		
+		private int sourceOffset;
+		private int targetOffset;
 
 		#region -- ProcessRecord ----------------------------------------------------------
 
@@ -30,33 +27,36 @@ namespace Neo.PowerShell.Directory
 				return;
 
 			// copy the file
-			bar.StatusText = $"Copy:{source.FullName} -> {target.FullName}";
-	
-			// update attributes
-			if (target.Exists && (target.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
-				target.Attributes = FileAttributes.Normal;
+			if (ShouldProcess(source.FullName, "sync"))
+			{
+				bar.StatusText = $"Copy:{source.FullName} -> {target.FullName}";
 
-			notify.SafeIO(() => target = source.CopyTo(target.FullName, target.Exists), bar.StatusText);
+				// update attributes
+				if (target.Exists && (target.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
+					target.Attributes = FileAttributes.Normal;
 
-			// update attributes
-			if (target.Exists && (target.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
-				target.Attributes = FileAttributes.Normal;
+				Notify.SafeIO(() => target = source.CopyTo(target.FullName, target.Exists), bar.StatusText);
 
-			// copy attributes
-			target.CreationTimeUtc = source.CreationTimeUtc;
-			target.LastAccessTimeUtc = source.LastAccessTimeUtc;
-			target.LastWriteTimeUtc = source.LastWriteTimeUtc;
-			target.Attributes = source.Attributes;
+				// update attributes
+				if (target.Exists && (target.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
+					target.Attributes = FileAttributes.Normal;
+
+				// copy attributes
+				target.CreationTimeUtc = source.CreationTimeUtc;
+				target.LastAccessTimeUtc = source.LastAccessTimeUtc;
+				target.LastWriteTimeUtc = source.LastWriteTimeUtc;
+				target.Attributes = source.Attributes;
+			}
 		} // proc SyncFileItem
 
-		private void SyncRemoveItem(CmdletProgress bar, FileSystemInfo fsi)
+		private void SyncRemoveItem(CmdletProgress bar, FileSystemInfo fsi, int relativeOffset)
 		{
 			var directoryInfo = fsi as DirectoryInfo;
 			if (directoryInfo != null)
 			{
 				foreach (var cur in directoryInfo.EnumerateFileSystemInfos())
 				{
-					SyncRemoveItem(bar, cur);
+					SyncRemoveItem(bar, cur, relativeOffset);
 					if (Stopping)
 						return;
 				}
@@ -69,32 +69,48 @@ namespace Neo.PowerShell.Directory
 			}
 
 			// Delete file
-			bar.StatusText = $"Delete: {fsi.FullName}";
-			notify.SafeIO(fsi.Delete, bar.StatusText);
+			if (ShouldProcess(GetRelativePath(fsi.FullName, relativeOffset), "remove"))
+				Notify.SafeIO(fsi.Delete, $"Delete: {fsi.FullName}");
 		} // proc SyncRemoveItem
 
 		private void SyncItems(CmdletProgress bar, DirectoryInfo source, DirectoryInfo target)
 		{
-			WriteVerbose($"Enter directory: {source.FullName}");
+			bar.StatusText = $"Scan directory: {source.FullName}";
 
-      if (!source.Exists)
+			//WriteVerbose($"Enter directory: {source.FullName}");
+			if (!source.Exists)
 				throw new ArgumentException($"Path not found ({source.FullName}).");
 
 			if (!target.Exists)
 			{
-				bar.StatusText = $"Create directory: {target}";
-				target.Create();
+				if (ShouldProcess(target.FullName, "create directory"))
+				{
+					target.Create();
+					target.Refresh();
+				}
 			}
 
-			// Hole die Dateilisten ab
+			// build filter
+			rules = new FileFilterRules(Excludes);
+			
+			// get the files of the current directories
 			var sourceItems = source.GetFileSystemInfos();
-			var targetItems = target.GetFileSystemInfos();
+			var targetItems = target.Exists ? target.GetFileSystemInfos() : new FileSystemInfo[0];
 
-			// Vergleiche die Listen
+			// compare
 			for (var i = 0; i < sourceItems.Length; i++)
 			{
 				var fsi = sourceItems[i];
-				var index = Array.FindIndex(targetItems, c => c != null && string.Compare(c.Name, fsi.Name, true) == 0);
+
+				// is this path filtered
+				var currentSourcePath = GetRelativePath(fsi.FullName, sourceOffset);
+				if (rules.IsFiltered(currentSourcePath))
+				{
+					WriteVerbose($"Skip: {currentSourcePath}");
+					continue;
+				}
+
+				var index = Array.FindIndex(targetItems, c => c != null && String.Compare(c.Name, fsi.Name, StringComparison.OrdinalIgnoreCase) == 0);
 				if (fsi is DirectoryInfo)
 					SyncItems(bar, (DirectoryInfo)fsi, new DirectoryInfo(Path.Combine(target.FullName, fsi.Name)));
 				else if (index != -1)
@@ -114,16 +130,36 @@ namespace Neo.PowerShell.Directory
 			{
 				var fsi = targetItems[j];
 				if (fsi != null)
-					this.SyncRemoveItem(bar, fsi);
+					this.SyncRemoveItem(bar, fsi, targetOffset);
 			}
 
-			WriteVerbose($"Leave directory: {target.FullName}");
+			//WriteVerbose($"Leave directory: {target.FullName}");
     } // proc SyncItems
+
+		private static string GetCleanPath(string path)
+		{
+			if (String.IsNullOrEmpty(path))
+				throw new ArgumentNullException("path");
+
+			if (path.EndsWith("\\"))
+				path = path.Substring(0, path.Length - 1);
+
+			return path;
+		} // func GetCleanPath
+
+		private static string GetRelativePath(string path, int offset)
+			=> path.Substring(offset);
 
 		protected override void ProcessRecord()
 		{
-			using (var bar = notify.CreateStatus(String.Format("Synchronize {0} -> {1}", Source, Target), String.Empty))
-				SyncItems(bar, new DirectoryInfo(Source), new DirectoryInfo(Target));
+			using (var bar = Notify.CreateStatus(String.Format("Synchronize {0} -> {1}", Source, Target), String.Empty))
+			{
+				var source = new DirectoryInfo(GetCleanPath(Source));
+				var target = new DirectoryInfo(GetCleanPath(Target));
+				sourceOffset = source.FullName.Length + 1;
+				targetOffset = target.FullName.Length + 1;
+				SyncItems(bar, source, target);
+			}
 		} // proc ProcessRecord
 
 		#endregion

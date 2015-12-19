@@ -217,6 +217,21 @@ namespace Neo.PowerShell
 
 		#endregion
 
+		#region -- GetCleanPath -----------------------------------------------------------
+
+		public static string GetCleanPath(string path)
+		{
+			if (String.IsNullOrEmpty(path))
+				throw new ArgumentNullException("path");
+
+			if (path.EndsWith("\\"))
+				path = path.Substring(0, path.Length - 1);
+
+			return path;
+		} // func GetCleanPath
+
+		#endregion
+
 		#region -- Create, Open -----------------------------------------------------------
 
 		private static Stream OpenWrite(FileInfo file)
@@ -298,35 +313,32 @@ namespace Neo.PowerShell
 
 		#region -- CopyRawBytes------------------------------------------------------------
 
-		public static void CopyRawBytes(this CmdletProgress bar, string name, long fileLength, Stream src, Stream dst)
+		public static void CopyRawBytes(this CmdletProgress bar, string relativePath, long fileLength, Stream src, Stream dst)
 		{
-			var swLast = Stopwatch.StartNew();
-			var writtenLast = 0L;
 			var buf = new byte[4096];
 
-			bar.StatusText = $"Kopiere {name} ({Stuff.FormatFileSize(fileLength)})...";
-
-			while (true)
+			bar.StartIoSpeed();
+			try
 			{
-				var r = src.Read(buf, 0, buf.Length);
-				if (r > 0)
+				bar.CurrentOperation = $"Copy {relativePath}";
+				bar.StatusDescription = $"Copy {Path.GetFileName(relativePath)} ({Stuff.FormatFileSize(fileLength)}$speed$)...";
+
+				while (true)
 				{
-					dst.Write(buf, 0, r);
-					bar.Position += r;
-
-					writtenLast += r;
-					if (swLast.ElapsedMilliseconds > 2000)
+					var r = src.Read(buf, 0, buf.Length);
+					if (r > 0)
 					{
-						var newRate = writtenLast * 1000 / swLast.ElapsedMilliseconds; // bytes/s
-						bar.StatusText = $"Kopiere {name} ({Stuff.FormatFileSize(fileLength)}, {Stuff.FormatFileSize(newRate)}/s)...";
-
-						// reset
-						swLast = Stopwatch.StartNew();
-						writtenLast = 0;
+						dst.Write(buf, 0, r);
+						bar.AddCopiedBytes(r);
+						bar.Position += r;
 					}
+					else
+						break;
 				}
-				else
-					break;
+			}
+			finally
+			{
+				bar.StopIoSpeed();
 			}
 		} // proc CopyRawBytes
 

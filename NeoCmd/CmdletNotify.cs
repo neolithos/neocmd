@@ -28,18 +28,26 @@ namespace Neo.PowerShell
 		private int lastSeconds = -1;
 		private int lastSecondsUpdate = -1;
 
+		private Stopwatch startCopiedBytes = null;
+		private int lastUpdateCopyRate = -1;
+		private long copiedBytes = 0L;
+		private long lastCopyRate = -1;
+		private string statusDescription = null;
+
 		private Stopwatch updateTime = null;
+
+		#region -- Ctor/Dtor --------------------------------------------------------------
 
 		/// <summary></summary>
 		/// <param name="ui"></param>
 		/// <param name="activity"></param>
 		/// <param name="text"></param>
-		public CmdletProgress(PSHostUserInterface ui, string activity, string text)
+		public CmdletProgress(PSHostUserInterface ui, string activity, string statusDescription)
 		{
 			this.sourceId = Environment.TickCount;
 			this.ui = ui;
-			this.progress = new ProgressRecord(Math.Abs(activity.GetHashCode()), activity, text);
-
+			this.progress = new ProgressRecord(Math.Abs(activity.GetHashCode()), activity, statusDescription);
+			
 			ui.WriteProgress(sourceId, progress);
 		} // ctor
 
@@ -49,12 +57,16 @@ namespace Neo.PowerShell
 			ui.WriteProgress(sourceId, progress);
 		} // proc Dispose
 
+		#endregion
+
+		#region -- UpdatePercent ----------------------------------------------------------
+
 		private void UpdatePercent(long position, long maximum)
 		{
 			var updateUI = false;
 
 			// Prüfe die Prozentanzeige
-			var tmp = unchecked((int)(position * 100 / maximum));
+			var tmp = maximum > 0 ? unchecked((int)(position * 100 / maximum)) : 0;
 			if (tmp != lastPercent)
 			{
 				lastPercent = tmp;
@@ -85,29 +97,124 @@ namespace Neo.PowerShell
 			ui.WriteProgress(sourceId, progress);
 		} // proc UpdateProgressBar
 
+		private void UpdateStatusDescription(bool force)
+		{
+			if (startCopiedBytes != null)
+			{
+				var bytesPerSecond = startCopiedBytes.ElapsedMilliseconds > 0 ? unchecked(copiedBytes * 1000 / startCopiedBytes.ElapsedMilliseconds) : 0;
+				if (lastCopyRate != bytesPerSecond)
+				{
+					lastCopyRate = bytesPerSecond;
+					force = true;
+				}
+			}
+
+			if (force)
+			{
+				progress.StatusDescription = statusDescription.Replace("$speed$", startCopiedBytes == null ? String.Empty : ", " + Stuff.FormatFileSize(lastCopyRate) + "/s");
+				ui.WriteProgress(sourceId, progress);
+			}
+		} // proc UpdateStatusDescription
+
+		#endregion
+
+		#region -- StartRemaining, StopRemaining ------------------------------------------
+
+		/// <summary>Start the time remaining counter.</summary>
 		public void StartRemaining()
 		{
 			updateTime = Stopwatch.StartNew();
 		} // proc StartRemaining
 
+		/// <summary>Stop the time remaining counter.</summary>
 		public void StopRemaining()
 		{
 			lastSeconds = -1;
 			UpdateProgressBar();
 		} // proc StopRemaining
 
+		public void StartIoSpeed()
+		{
+			startCopiedBytes = Stopwatch.StartNew();
+			lastUpdateCopyRate = Environment.TickCount;
+			lastCopyRate = 0;
+			copiedBytes = 0;
+		} // proc StartIoSpeed
+
+		public void StopIoSpeed()
+		{
+			startCopiedBytes = null;
+			lastCopyRate = -1;
+			UpdateStatusDescription(true);
+		} // proc StopIoSpeed
+
+		public void AddCopiedBytes(long bytes)
+		{
+			if (startCopiedBytes != null)
+			{
+				copiedBytes += bytes;
+
+				if (unchecked(Environment.TickCount - lastUpdateCopyRate) > 1000)
+				{
+					UpdateStatusDescription(false);
+					lastUpdateCopyRate = Environment.TickCount;
+				}
+
+				if (startCopiedBytes.ElapsedMilliseconds > 5000)
+				{
+					copiedBytes = 0;
+					startCopiedBytes = Stopwatch.StartNew();
+				}
+			}
+		} // proc AddCopiedBytes
+
+		public void AddSilentMaximum(long maximumAdd)
+		{
+			Interlocked.Add(ref maximum, maximumAdd);
+		} // proc AddSilentMaximum
+
+		#endregion
+
+		/// <summary>Position within the maximum.</summary>
 		public long Position { get { return position; } set { UpdatePercent(position = value, maximum); } }
+		/// <summary>Maximum for the percent value.</summary>
 		public long Maximum { get { return maximum; } set { UpdatePercent(position, maximum = value); } }
 
-		public string StatusText
+		/// <summary>1. Line, Title for the progress.</summary>
+		public string ActivityText
+		{
+			get { return progress.Activity; }
+			set
+			{
+				if (progress.Activity != value)
+					progress.Activity = value;
+				ui.WriteProgress(sourceId, progress);
+			}
+		} // prop ActivityText
+
+		/// <summary>2. Line, Description of the current operation (mbytes per second added).</summary>
+		public string StatusDescription
+		{
+			get { return statusDescription; }
+			set
+			{
+				if (statusDescription != value)
+					statusDescription = value;
+				UpdateStatusDescription(true);
+			}
+		} // prop StatusDescription
+
+		/// <summary>3 Line, is the current operatione (should not changed).</summary>
+		public string CurrentOperation
 		{
 			get { return progress.CurrentOperation; }
 			set
 			{
-				progress.CurrentOperation = value;
+				if (progress.CurrentOperation != value)
+					progress.CurrentOperation = value;
 				ui.WriteProgress(sourceId, progress);
 			}
-		} // prop StatusText
+		} // prop CurrentOperation
 	} // class CmdletProgress
 
 	#endregion
@@ -245,15 +352,75 @@ namespace Neo.PowerShell
 	{
 		private readonly CmdletNotify notify = null;
 
+		private ManualResetEventSlim syncItemsFilled = null;
+		private readonly Queue<Action> syncItems;
+
 		public NeoCmdlet()
 		{
 			notify = new CmdletNotify(this);
+
+			syncItems = new Queue<Action>();
+			syncItemsFilled = new ManualResetEventSlim(false);
 		} // ctor
+
+		protected void EnqueueAction(Action proc)
+		{
+			lock (syncItems)
+			{
+				syncItems.Enqueue(proc);
+				syncItemsFilled.Set();
+			}
+		} // proc EnqueueAction
+
+		private bool DequeueAction(out Action proc)
+		{
+			lock(syncItems)
+			{
+				if (syncItems.Count > 0)
+				{
+					proc = syncItems.Dequeue();
+					return true;
+				}
+
+				syncItemsFilled.Reset();
+				proc = null;
+				return false;
+			}
+		} // func DequeueAction
+
+		protected void DequeueActions(bool waitForEof)
+		{
+			do
+			{
+				Action proc;
+				while (DequeueAction(out proc))
+				{
+					if (proc == null)
+						return;
+					proc();
+				}
+
+				if (waitForEof)
+					syncItemsFilled.Wait(1000);
+				if (Stopping)
+					return;
+			} while (waitForEof);
+		} // proc DequeueActions
 
 		protected override void BeginProcessing()
 		{
 			base.BeginProcessing();
+
+			syncItemsFilled = new ManualResetEventSlim(false);
+			syncItems.Clear();
 		} // proc BeginProcessing
+
+		protected override void EndProcessing()
+		{
+			syncItemsFilled?.Dispose();
+			syncItemsFilled = null;
+			base.EndProcessing();
+		} // proc EndProcessing
 
 		public CmdletNotify Notify => notify;
 

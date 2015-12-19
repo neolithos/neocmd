@@ -31,7 +31,7 @@ namespace Neo.PowerShell.Backup
 				var archiveUsed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
 				// Lade Index-Datei
-				bar.StatusText = "Lese Index...";
+				bar.StatusDescription = "Lese Index...";
 				var targetPath = new DirectoryInfo(Target);
 				var targetIndex = Path.Combine(targetPath.FullName, "index.txt.gz");
 				var index = new FileIndex();
@@ -41,7 +41,7 @@ namespace Neo.PowerShell.Backup
 					index.ReadIndex(Notify, ShadowIndex);
 
 				// Gleiche die Daten ab und erzeuge die Statistik
-				bar.StatusText = "Vergleiche Dateien mit Index...";
+				bar.StatusDescription = "Vergleiche Dateien mit Index...";
 				var swFileStopWatch = Stopwatch.StartNew();
 				var files = new FileList(Notify, new DirectoryInfo(Source), Excludes);
 				foreach (var c in files)
@@ -52,7 +52,7 @@ namespace Neo.PowerShell.Backup
 					// Gib einen zwischen Bericht
 					if (swFileStopWatch.ElapsedMilliseconds > 500)
 					{
-						bar.StatusText = $"Vergleiche {c.RelativePath} mit Index...";
+						bar.StatusDescription = $"Vergleiche {c.RelativePath} mit Index...";
 						swFileStopWatch = Stopwatch.StartNew();
 					}
 
@@ -163,7 +163,7 @@ namespace Neo.PowerShell.Backup
 
 					// Schreibe den Index
 					bar.StopRemaining();
-					bar.StatusText = "Schreibe Index...";
+					bar.StatusDescription = "Schreibe Index...";
 					if (!String.IsNullOrEmpty(ShadowIndex))
 						index.WriteIndex(Notify, ShadowIndex);
 					index.WriteIndex(Notify, targetIndex);
@@ -175,13 +175,13 @@ namespace Neo.PowerShell.Backup
 							if (c.Value == 0)
 							{
 								var file = new FileInfo(Path.Combine(targetPath.FullName, c.Key));
-								bar.StatusText = $"Nicht mehr benötigtes Archiv '{c.Key}'...";
-								Notify.SafeIO(file.Delete, bar.StatusText);
+								bar.StatusDescription = $"Nicht mehr benötigtes Archiv '{c.Key}'...";
+								Notify.SafeIO(file.Delete, bar.StatusDescription);
 							}
 					}
 					else // Erzeuge nur eine Löschdatei
 					{
-						bar.StatusText = "Nicht mehr benötigte Archive werden gelöscht...";
+						bar.StatusDescription = "Nicht mehr benötigte Archive werden gelöscht...";
 						using (var sw = new StreamWriter(Stuff.OpenWrite(new FileInfo(Path.Combine(targetPath.FullName, "index_rm.txt")), Notify, CompressMode.Stored)))
 						{
 							sw.BaseStream.Position = sw.BaseStream.Length;

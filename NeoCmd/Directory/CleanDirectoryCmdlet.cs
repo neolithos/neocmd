@@ -31,17 +31,10 @@ namespace Neo.PowerShell.Directory
 				if (di != null)
 				{
 					if (CleanDirectoryPath(bar, dtNow, age, di, currentRelativePath))
-						try
-						{
-							directoriesDeleted++;
-							if (ShouldProcess(di.FullName, "remove"))
-								DeleteSafe(di.Delete, di.FullName);
-						}
-						catch (IOException)
-						{
-							WriteWarning($"{currentRelativePath} nicht gelöscht.");
-							empty = false;
-						}
+					{
+						directoriesDeleted++;
+						empty = DeleteSafe(bar, di.Delete, currentRelativePath);
+					}
 					else
 						empty = false;
 				}
@@ -49,19 +42,10 @@ namespace Neo.PowerShell.Directory
 				{
 					if (IsOutAged(dtNow, fi.LastAccessTime, age) || IsOutAged(dtNow, fi.LastWriteTime, age) || IsOutAged(dtNow, fi.LastAccessTime, age))
 					{
-						bar.StatusText = $"Lösche {currentRelativePath}...";
-						try
-						{
-							bytesDeleted += fi.Length;
-							filesDeleted++;
-							if (ShouldProcess(fi.FullName, "remove"))
-								DeleteSafe(fi.Delete, fi.FullName);
-						}
-						catch (IOException)
-						{
-							WriteWarning($"{currentRelativePath} nicht gelöscht.");
+						bytesDeleted += fi.Length;
+						filesDeleted++;
+						if (!DeleteSafe(bar, fi.Delete, currentRelativePath))
 							empty = false;
-						}
 					}
 					else
 						empty = false;
@@ -70,15 +54,21 @@ namespace Neo.PowerShell.Directory
 			return empty;
 		} // proc CleanDirectory
 
-		private void DeleteSafe(Action delete, string fullName)
+		private bool DeleteSafe(CmdletProgress bar, Action delete, string relativePath)
 		{
 			try
 			{
-				delete();
+				if (ShouldProcess(relativePath, "remove"))
+				{
+					bar.CurrentOperation = $"Delete {relativePath}...";
+					delete();
+				}
+				return true;
 			}
 			catch (Exception e)
 			{
-				WriteWarning($"Delete failed: {fullName} ({e.Message})");
+				WriteWarning($"Delete failed: {relativePath} ([{e.GetType().Name}] {e.Message})");
+        return false;
 			}
 		} // proc DeleteSafe
 
@@ -88,10 +78,10 @@ namespace Neo.PowerShell.Directory
 			filesDeleted = 0;
 			bytesDeleted = 0;
 
-			using (var bar = Notify.CreateStatus("Säubere Verzeichnis", $"{Target} wird gesäubert..."))
+			using (var bar = Notify.CreateStatus("Clean directory", $"Clean {Target}..."))
 				CleanDirectoryPath(bar, DateTime.Now, Age.TotalMilliseconds > 0 ? Age : Age.Negate(), new DirectoryInfo(Target), String.Empty);
 
-			WriteVerbose($"Removed: {directoriesDeleted:N0} directories, {filesDeleted:N0} files, {bytesDeleted >> 10:N0} kiB");
+			WriteVerbose($"Removed: {directoriesDeleted:N0} directories, {filesDeleted:N0} files, {Stuff.FormatFileSize(bytesDeleted)}");
 		} // proc ProcessRecord
 
 		#endregion

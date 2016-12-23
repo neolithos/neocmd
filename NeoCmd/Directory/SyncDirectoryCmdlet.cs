@@ -105,7 +105,7 @@ namespace Neo.PowerShell.Directory
 				throw new ArgumentException($"Path not found ({source.FullName}).");
 
 			// get the files of the current directories
-			var sourceItems = source.GetFileSystemInfos();
+			var sourceItems = GetFileItems(source);
 			var targetItems = target.Exists ? target.GetFileSystemInfos() : emptyFileSystemInfos;
 
 			if (!copyStarted)
@@ -134,6 +134,9 @@ namespace Neo.PowerShell.Directory
 				var index = Array.FindIndex(targetItems, c => c != null && String.Compare(c.Name, fsi.Name, StringComparison.OrdinalIgnoreCase) == 0);
 				if (fsi is DirectoryInfo)
 				{
+					if ((fsi.Attributes & FileAttributes.ReparsePoint) != 0)
+						continue; // skip reparse points
+
 					if (index == -1)
 						CompareDirectory((DirectoryInfo)fsi, new DirectoryInfo(Path.Combine(target.FullName, fsi.Name)));
 					else
@@ -162,6 +165,19 @@ namespace Neo.PowerShell.Directory
 					EnqueueAction(() => RemoveItem(fsi));
 			}
 		} // func CompareDirectory
+
+		private static FileSystemInfo[] GetFileItems(DirectoryInfo source)
+		{
+			try
+			{
+				return source.GetFileSystemInfos();
+			}
+			catch (UnauthorizedAccessException)
+			{
+
+				return new FileSystemInfo[0];
+			}
+		} // func GetFileItems
 
 		private void CompareDirectoryRoot()
 		{

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 
@@ -23,7 +24,7 @@ namespace Neo.PowerShell.Directory
 		private bool CleanDirectoryPath(CmdletProgress bar, DateTime dtNow, TimeSpan age, DirectoryInfo currentDirecotry, string relativePath)
 		{
 			var empty = true;
-			foreach (var fsi in currentDirecotry.EnumerateFileSystemInfos())
+			foreach (var fsi in EnumerateDirectory(currentDirecotry, relativePath))
 			{
 				var currentRelativePath = Path.Combine(relativePath, fsi.Name);
 				var di = fsi as DirectoryInfo;
@@ -40,7 +41,7 @@ namespace Neo.PowerShell.Directory
 				}
 				else if (fi != null)
 				{
-					if (IsOutAged(dtNow, fi.LastAccessTime, age) || IsOutAged(dtNow, fi.LastWriteTime, age) || IsOutAged(dtNow, fi.LastAccessTime, age))
+					if (IsOutAged(dtNow, fi.LastAccessTime, age) || IsOutAged(dtNow, fi.LastWriteTime, age) || IsOutAged(dtNow, fi.CreationTime, age))
 					{
 						bytesDeleted += fi.Length;
 						filesDeleted++;
@@ -53,6 +54,19 @@ namespace Neo.PowerShell.Directory
 			}
 			return empty;
 		} // proc CleanDirectory
+
+		private IEnumerable<FileSystemInfo> EnumerateDirectory(DirectoryInfo currentDirecotry, string relativePath)
+		{
+			try
+			{
+				return currentDirecotry.EnumerateFileSystemInfos();
+			}
+			catch (UnauthorizedAccessException e)
+			{
+				WriteWarning($"Delete failed: {relativePath} ([{e.GetType().Name}] {e.Message})");
+				return new FileSystemInfo[0];
+			}
+		} // func EnumerateDirectory
 
 		private bool DeleteSafe(CmdletProgress bar, Action delete, string relativePath)
 		{
@@ -68,7 +82,7 @@ namespace Neo.PowerShell.Directory
 			catch (Exception e)
 			{
 				WriteWarning($"Delete failed: {relativePath} ([{e.GetType().Name}] {e.Message})");
-        return false;
+				return false;
 			}
 		} // proc DeleteSafe
 

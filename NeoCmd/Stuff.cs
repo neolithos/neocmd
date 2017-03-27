@@ -334,7 +334,7 @@ namespace Neo.PowerShell
 					}
 					else
 					{
-						if (dst.CanSeek) // cut file
+						if (dst.CanSeek && dst.Position < dst.Length) // cut file
 							dst.SetLength(dst.Position);
 						break;
 					}

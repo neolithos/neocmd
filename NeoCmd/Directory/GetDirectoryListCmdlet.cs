@@ -7,8 +7,8 @@ namespace Neo.PowerShell.Directory
 	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
 	[
-	Cmdlet(VerbsCommon.Get, "directorylist")
-  OutputType(new Type[] { typeof(FileListItem) })
+	Cmdlet(VerbsCommon.Get, "directorylist"),
+	OutputType(new Type[] { typeof(FileListItem) })
 	]
 	public sealed class GetDirectoryListCmdlet : NeoCmdlet
 	{

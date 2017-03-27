@@ -6,8 +6,8 @@ namespace Neo.PowerShell.Backup
 	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
 	[
-	Cmdlet(VerbsData.Save, "backupindex")
-  OutputType(typeof(FileIndexItem))
+	Cmdlet(VerbsData.Save, "backupindex"),
+	OutputType(typeof(FileIndexItem))
 	]
 	public sealed class WriteBackupIndexCmdlet : NeoCmdlet
 	{

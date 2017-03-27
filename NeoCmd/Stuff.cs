@@ -333,7 +333,11 @@ namespace Neo.PowerShell
 						bar.Position += r;
 					}
 					else
+					{
+						if (dst.CanSeek) // cut file
+							dst.SetLength(dst.Position);
 						break;
+					}
 				}
 			}
 			finally

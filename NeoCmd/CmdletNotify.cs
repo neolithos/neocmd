@@ -66,7 +66,7 @@ namespace Neo.PowerShell
 			var updateUI = false;
 
 			// Prüfe die Prozentanzeige
-			var tmp = maximum > 0 ? unchecked((int)(position * 100 / maximum)) : 0;
+			var tmp = maximum > 0 ? Math.Max(0, Math.Min(100, unchecked((int)(position * 100 / maximum)))) : 0;
 			if (tmp != lastPercent)
 			{
 				lastPercent = tmp;

@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Neo.PowerShell.Directory
@@ -26,8 +24,7 @@ namespace Neo.PowerShell.Directory
 
 		private void RemoveItem(FileSystemInfo fsi)
 		{
-			var directoryInfo = fsi as DirectoryInfo;
-			if (directoryInfo != null)
+			if (fsi is DirectoryInfo directoryInfo)
 			{
 				foreach (var cur in directoryInfo.EnumerateFileSystemInfos())
 				{
@@ -38,8 +35,7 @@ namespace Neo.PowerShell.Directory
 			}
 			else
 			{
-				var fi = fsi as FileInfo;
-				if (fi != null && (fi.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
+				if (fsi is FileInfo fi && (fi.Attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != (FileAttributes)0)
 					fi.Attributes = FileAttributes.Normal;
 			}
 
@@ -132,23 +128,25 @@ namespace Neo.PowerShell.Directory
 
 				// compare the file items
 				var index = Array.FindIndex(targetItems, c => c != null && String.Compare(c.Name, fsi.Name, StringComparison.OrdinalIgnoreCase) == 0);
-				if (fsi is DirectoryInfo)
+				if (fsi is DirectoryInfo di)
 				{
-					if ((fsi.Attributes & FileAttributes.ReparsePoint) != 0)
+					if ((di.Attributes & FileAttributes.ReparsePoint) != 0)
 						continue; // skip reparse points
 
 					if (index == -1)
-						CompareDirectory((DirectoryInfo)fsi, new DirectoryInfo(Path.Combine(target.FullName, fsi.Name)));
+						CompareDirectory(di, new DirectoryInfo(Path.Combine(target.FullName, fsi.Name)));
 					else
-						CompareDirectory((DirectoryInfo)fsi, (DirectoryInfo)targetItems[index]);
+						CompareDirectory(di, (DirectoryInfo)targetItems[index]);
 				}
-				else
+				else if (fsi is FileInfo fi)
 				{
 					if (index == -1)
-						CompareFile((FileInfo)fsi, new FileInfo(Path.Combine(target.FullName, fsi.Name)));
+						CompareFile(fi, new FileInfo(Path.Combine(target.FullName, fi.Name)));
 					else
-						CompareFile((FileInfo)fsi, (FileInfo)targetItems[index]);
+						CompareFile(fi, (FileInfo)targetItems[index]);
 				}
+				else
+					throw new ArgumentException();
 
 				if (index != -1)
 					targetItems[index] = null;
@@ -209,25 +207,32 @@ namespace Neo.PowerShell.Directory
 				bar.Maximum = 0;
 
 				// start compare
-				Task t = Task.Factory.StartNew(CompareDirectoryRoot);
+				var t = Task.Factory.StartNew(CompareDirectoryRoot);
 
 				// copy files
 				bar.StartRemaining();
 				DequeueActions(true);
 				if (!Stopping)
-					t.Wait();
+				{
+					try
+					{
+						t.Wait();
+					}
+					catch (AggregateException e)
+					{
+						WriteError(new ErrorRecord(e.InnerException, "1", ErrorCategory.OperationStopped, this));
+						throw;
+					}
+				}
 			}
 		} // proc ProcessRecord
 
 		private static string GetRelativePath(string path, int offset)
-		{
-			if (offset < path.Length)
-				return path.Substring(offset);
-			else
-				return "\\";
-		} // func GetRelativePath
+			=> offset < path.Length
+				? path.Substring(offset)
+				: "\\";
 
-		#region -- Arguments --------------------------------------------------------------
+		#region -- Arguments ----------------------------------------------------------
 
 		[
 		Parameter(Position = 0, Mandatory = true),

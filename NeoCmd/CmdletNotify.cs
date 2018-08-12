@@ -3,18 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Host;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Neo.PowerShell
 {
-	#region -- class CmdletProgress -----------------------------------------------------
+	#region -- class CmdletProgress ---------------------------------------------------
 
-	///////////////////////////////////////////////////////////////////////////////
 	/// <summary>Verwaltet den Fortschritt einer Operation</summary>
 	public sealed class CmdletProgress : IDisposable
 	{
@@ -36,7 +32,7 @@ namespace Neo.PowerShell
 
 		private Stopwatch updateTime = null;
 
-		#region -- Ctor/Dtor --------------------------------------------------------------
+		#region -- Ctor/Dtor ----------------------------------------------------------
 
 		/// <summary></summary>
 		/// <param name="ui"></param>
@@ -59,7 +55,7 @@ namespace Neo.PowerShell
 
 		#endregion
 
-		#region -- UpdatePercent ----------------------------------------------------------
+		#region -- UpdatePercent ------------------------------------------------------
 
 		private void UpdatePercent(long position, long maximum)
 		{
@@ -118,7 +114,7 @@ namespace Neo.PowerShell
 
 		#endregion
 
-		#region -- StartRemaining, StopRemaining ------------------------------------------
+		#region -- StartRemaining, StopRemaining --------------------------------------
 
 		/// <summary>Start the time remaining counter.</summary>
 		public void StartRemaining()
@@ -169,21 +165,19 @@ namespace Neo.PowerShell
 		} // proc AddCopiedBytes
 
 		public void AddSilentMaximum(long maximumAdd)
-		{
-			Interlocked.Add(ref maximum, maximumAdd);
-		} // proc AddSilentMaximum
-
+			=> Interlocked.Add(ref maximum, maximumAdd);
+		
 		#endregion
 
 		/// <summary>Position within the maximum.</summary>
-		public long Position { get { return position; } set { UpdatePercent(position = value, maximum); } }
+		public long Position { get => position; set => UpdatePercent(position = value, maximum); }
 		/// <summary>Maximum for the percent value.</summary>
-		public long Maximum { get { return maximum; } set { UpdatePercent(position, maximum = value); } }
+		public long Maximum { get => maximum; set => UpdatePercent(position, maximum = value); }
 
 		/// <summary>1. Line, Title for the progress.</summary>
 		public string ActivityText
 		{
-			get { return progress.Activity; }
+			get => progress.Activity;
 			set
 			{
 				if (progress.Activity != value)
@@ -195,7 +189,7 @@ namespace Neo.PowerShell
 		/// <summary>2. Line, Description of the current operation (mbytes per second added).</summary>
 		public string StatusDescription
 		{
-			get { return statusDescription; }
+			get => statusDescription;
 			set
 			{
 				if (statusDescription != value)
@@ -207,7 +201,7 @@ namespace Neo.PowerShell
 		/// <summary>3 Line, is the current operatione (should not changed).</summary>
 		public string CurrentOperation
 		{
-			get { return progress.CurrentOperation; }
+			get => progress.CurrentOperation;
 			set
 			{
 				if (progress.CurrentOperation != value)
@@ -219,9 +213,8 @@ namespace Neo.PowerShell
 
 	#endregion
 
-	#region -- class CmdletNotify -------------------------------------------------------
+	#region -- class CmdletNotify -----------------------------------------------------
 
-	///////////////////////////////////////////////////////////////////////////////
 	/// <summary>Helper für die Ausgabe von Daten in den Host.</summary>
 	public sealed class CmdletNotify
 	{
@@ -240,6 +233,7 @@ namespace Neo.PowerShell
 			const int max = 6;
 			var tries = max;
 			while (tries > 0)
+			{
 				try
 				{
 					action();
@@ -258,13 +252,16 @@ namespace Neo.PowerShell
 						tries--;
 					}
 				}
+			}
 		} // proc SafeIO
 
 		private bool PromptChoice(string actionDescription, IOException e)
 		{
-			var choices = new Collection<ChoiceDescription>();
-			choices.Add(new ChoiceDescription("&Wiederholen"));
-			choices.Add(new ChoiceDescription("&Abbrechen"));
+			var choices = new Collection<ChoiceDescription>
+			{
+				new ChoiceDescription("&Wiederholen"),
+				new ChoiceDescription("&Abbrechen")
+			};
 			try
 			{
 				if (UI.PromptForChoice("Operation fehlgeschlagen", $"{actionDescription}\n{e.Message}\n\nVorgang wiederholen?", choices, 0) == 1)
@@ -344,9 +341,8 @@ namespace Neo.PowerShell
 
 	#endregion
 
-	#region -- class NeoCmdlet ----------------------------------------------------------
+	#region -- class NeoCmdlet --------------------------------------------------------
 
-	///////////////////////////////////////////////////////////////////////////////
 	/// <summary></summary>
 	public class NeoCmdlet : PSCmdlet
 	{
@@ -392,8 +388,7 @@ namespace Neo.PowerShell
 		{
 			do
 			{
-				Action proc;
-				while (DequeueAction(out proc))
+				while (DequeueAction(out var proc))
 				{
 					if (proc == null)
 						return;

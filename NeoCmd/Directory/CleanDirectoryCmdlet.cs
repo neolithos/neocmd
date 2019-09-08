@@ -17,9 +17,7 @@ namespace Neo.PowerShell.Directory
 		#region -- ProcessRecord ----------------------------------------------------------
 
 		private bool IsOutAged(DateTime dtNow, DateTime dt, TimeSpan t)
-		{
-			return dt + t < dtNow;
-		} // func IsOutAged
+			=> dt + t < dtNow;
 
 		private bool CleanDirectoryPath(CmdletProgress bar, DateTime dtNow, TimeSpan age, DirectoryInfo currentDirecotry, string relativePath)
 		{
@@ -27,9 +25,7 @@ namespace Neo.PowerShell.Directory
 			foreach (var fsi in EnumerateDirectory(currentDirecotry, relativePath))
 			{
 				var currentRelativePath = Path.Combine(relativePath, fsi.Name);
-				var di = fsi as DirectoryInfo;
-				var fi = fsi as FileInfo;
-				if (di != null)
+				if (fsi is DirectoryInfo di)
 				{
 					if (CleanDirectoryPath(bar, dtNow, age, di, currentRelativePath))
 					{
@@ -39,7 +35,7 @@ namespace Neo.PowerShell.Directory
 					else
 						empty = false;
 				}
-				else if (fi != null)
+				else if (fsi is FileInfo fi)
 				{
 					if (IsOutAged(dtNow, fi.LastAccessTime, age) || IsOutAged(dtNow, fi.LastWriteTime, age) || IsOutAged(dtNow, fi.CreationTime, age))
 					{

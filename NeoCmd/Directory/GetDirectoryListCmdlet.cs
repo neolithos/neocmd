@@ -15,7 +15,7 @@ namespace Neo.PowerShell.Directory
 		protected override void ProcessRecord()
 		{
 			var files = new FileList(Notify, new DirectoryInfo(Path), Excludes);
-      WriteObject(files);
+			WriteObject(files);
 		} // proc ProcessRecord
 
 		[

@@ -300,8 +300,7 @@ namespace Neo.PowerShell.Directory
 					foreach (var currentItem in files)
 					{
 						// upload file
-						long offset;
-						using (var dst = target.Create(currentItem.RelativePath, out offset))
+						using (var dst = target.Create(currentItem.RelativePath, out var offset))
 						using (var src = currentItem.FileInfo.OpenRead(notify))
 						{
 							src.Position = offset;
@@ -318,7 +317,7 @@ namespace Neo.PowerShell.Directory
 				// remove files
 				if (indexRemoveFile != null)
 				{
-					using (StreamReader sr = new StreamReader(Stuff.OpenRead(indexRemoveFile.FileInfo, notify)))
+					using (var sr = new StreamReader(Stuff.OpenRead(indexRemoveFile.FileInfo, notify)))
 					{
 						var file = sr.ReadLine();
 						while (file != null)

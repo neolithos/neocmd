@@ -64,8 +64,23 @@ namespace Neo.PowerShell.Directory
 
 				// copy the file data
 				using (var src = source.OpenRead(Notify, allowEmpty: true))
-				using (var dst = target.OpenWrite(Notify))
-					Stuff.CopyRawBytes(bar, GetRelativePath(target.FullName, targetOffset), source.Length, src, dst);
+				{
+					if (src == null)
+					{
+						WriteWarning(String.Format("Could not open file: {0}", source.FullName));
+						return;
+					}
+					using (var dst = target.OpenWrite(Notify))
+					{
+						if (dst == null)
+						{
+							WriteWarning(String.Format("Could not write file: {0}", target.FullName));
+							return;
+						}
+
+						Stuff.CopyRawBytes(bar, GetRelativePath(target.FullName, targetOffset), source.Length, src, dst);
+					}
+				}
 
 				// update dates
 				target.CreationTimeUtc = source.CreationTimeUtc;

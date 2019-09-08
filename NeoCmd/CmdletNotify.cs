@@ -334,7 +334,8 @@ namespace Neo.PowerShell
 		/// <param name="activity">Überschrift für die Operation</param>
 		/// <param name="text">Beschreibender Langtext der Operation.</param>
 		/// <returns></returns>
-		public CmdletProgress CreateStatus(string activity, string text) => new CmdletProgress(UI, activity, String.IsNullOrEmpty(text) ? activity : text);
+		public CmdletProgress CreateStatus(string activity, string text) 
+			=> new CmdletProgress(UI, activity, String.IsNullOrEmpty(text) ? activity : text);
 
 		public PSHostUserInterface UI => cmdlet.Host.UI;
 	} // class CmdletNotify

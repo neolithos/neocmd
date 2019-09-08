@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Management.Automation;
@@ -17,7 +18,7 @@ namespace Neo.PowerShell.Database
 				con.Open();
 
 				con.InfoMessage += Con_InfoMessage;
-				
+
 				using (var bar = Notify.CreateStatus("Backup database", $"Backup Database {con.Database}..."))
 				{
 					progress = bar;
@@ -25,7 +26,11 @@ namespace Neo.PowerShell.Database
 					// get index information
 					using (var cmd = con.CreateCommand())
 					{
-						bar.ActivityText = $"Check indizes {con.Database}...";
+						cmd.CommandTimeout = 0;
+
+						var indexTasks = new List<Tuple<string, string>>();
+
+						bar.StatusDescription = $"Check indizes {con.Database}...";
 						cmd.CommandText = String.Format(String.Join(Environment.NewLine,
 							"SELECT s.[name], o.[name], i.[name], avg_fragmentation_in_percent, fragment_count",
 							"	FROM sys.dm_db_index_physical_stats(DB_ID(N'{0}'), NULL, NULL, NULL, NULL) AS f",
@@ -53,20 +58,32 @@ namespace Neo.PowerShell.Database
 											: null;
 								if (action != null)
 								{
-									using (var cmd2 = con.CreateCommand())
-									{
-										bar.StatusDescription = $"Index {indexName} of {schemaName}.{tableName} - {action} (fragmentation: {frag:N1})...";
-										cmd2.CommandText = $"ALTER INDEX [{indexName}] ON [{schemaName}].[{tableName}] {action}";
-										cmd2.ExecuteNonQuery();
-									}
+									indexTasks.Add(
+										new Tuple<string, string>(
+											$"Index {indexName} of {schemaName}.{tableName} - {action} (fragmentation: {frag:N1})...",
+											$"ALTER INDEX [{indexName}] ON [{schemaName}].[{tableName}] {action}"
+										)
+									);
 								}
 							}
 						}
-					}
 
-					using (var cmd = con.CreateCommand())
-					{
-						bar.ActivityText = $"Execute Backup for {con.Database}...";
+						// check indizes
+						if (indexTasks.Count > 0)
+						{
+							bar.Maximum = indexTasks.Count;
+							for (var i = 0; i < indexTasks.Count; i++)
+							{
+								bar.Position = i;
+								bar.CurrentOperation = indexTasks[i].Item1;
+								cmd.CommandText = indexTasks[i].Item2;
+								cmd.ExecuteNonQuery();
+							}
+						}
+						bar.CurrentOperation = null;
+
+						// do backup
+						bar.StatusDescription = $"Execute Backup for {con.Database}...";
 						cmd.CommandText = String.Format(String.Join(Environment.NewLine,
 								"BACKUP DATABASE [{0}]",
 								"TO DISK = N'{1}' WITH NOFORMAT, INIT, ",
@@ -76,24 +93,24 @@ namespace Neo.PowerShell.Database
 							con.Database,
 							BackupFile
 						);
-						// do backup
 						bar.Maximum = 100;
 						bar.StartRemaining();
 						cmd.ExecuteScalar(); // ExecuteNonQuery does not fire InfoMessage
 						bar.StopRemaining();
 
 						// check backup state
-						bar.ActivityText = $"Check Backup for {con.Database}...";
+						bar.StatusDescription = $"Check Backup for {con.Database}...";
 						cmd.CommandText = String.Format("select position from msdb..backupset where database_name = N'{0}' and backup_set_id = (select max(backup_set_id) from msdb..backupset where database_name = N'{0}')", con.Database);
 						var pos = cmd.ExecuteScalar();
 						if (pos is DBNull)
 							throw new Exception("Backup information not found.");
-
-						bar.ActivityText = $"Verify Backup for {con.Database}...";
-						cmd.CommandText= String.Format("RESTORE VERIFYONLY FROM DISK = N'{0}' WITH FILE = {1}, NOUNLOAD, NOREWIND", BackupFile, pos);
+				
+						// verify backup
+						bar.StatusDescription = $"Verify Backup for {con.Database}...";
+						cmd.CommandText = String.Format("RESTORE VERIFYONLY FROM DISK = N'{0}' WITH FILE = {1}, NOUNLOAD, NOREWIND", BackupFile, pos);
 						cmd.ExecuteScalar();
 					}
-	
+
 				}
 			}
 		} // proc ProcessRecord

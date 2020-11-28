@@ -101,7 +101,7 @@ namespace Neo.PowerShell.Directory
 			if (target.Exists &&
 					source.Length == target.Length &&
 					Stuff.CompareFileTime(source.CreationTimeUtc, target.CreationTimeUtc) &&
-					Stuff.CompareFileTime(source.LastAccessTimeUtc, target.LastAccessTimeUtc) &&
+					// Stuff.CompareFileTime(source.LastAccessTimeUtc, target.LastAccessTimeUtc) && is modified during read!
 					Stuff.CompareFileTime(source.LastWriteTimeUtc, target.LastWriteTimeUtc))
 				return;
 

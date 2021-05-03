@@ -255,9 +255,11 @@ namespace Neo.PowerShell
 		{
 			if (file.Exists)
 			{
-				var choices = new Collection<ChoiceDescription>();
-				choices.Add(new ChoiceDescription("&Überschreiben"));
-				choices.Add(new ChoiceDescription("&Abbrechen"));
+				var choices = new Collection<ChoiceDescription>
+				{
+					new ChoiceDescription("&Überschreiben"),
+					new ChoiceDescription("&Abbrechen")
+				};
 				if (notify.UI.PromptForChoice("Überschreiben", $"Datei '{file.Name}' überschreiben?", choices, 0) != 0)
 					notify.Abort();
 

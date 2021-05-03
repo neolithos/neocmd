@@ -51,7 +51,7 @@ namespace Neo.PowerShell.Directory
 			{
 				if (ShouldProcess(target.Directory.FullName, "create directory"))
 				{
-					target.Directory.Create();
+					Notify.SafeIO(target.Directory.Create, $"Erstelle Verzeichnis: {target.Directory.FullName}");
 					target.Refresh();
 				}
 			}

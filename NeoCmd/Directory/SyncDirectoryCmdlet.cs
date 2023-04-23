@@ -80,12 +80,13 @@ namespace Neo.PowerShell.Directory
 				}
 
 				// update dates
+				target.Refresh();
+				target.Attributes = (source.Attributes & ~FileAttributes.Compressed) | (target.Attributes & FileAttributes.Compressed);
+				target.SetAccessControl(source.GetAccessControl());
+
 				target.CreationTimeUtc = source.CreationTimeUtc;
 				target.LastAccessTimeUtc = source.LastAccessTimeUtc;
 				target.LastWriteTimeUtc = source.LastWriteTimeUtc;
-				target.Attributes = source.Attributes;
-
-				target.SetAccessControl(source.GetAccessControl());
 			}
 		} // proc CopyItem
 

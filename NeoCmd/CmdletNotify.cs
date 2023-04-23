@@ -232,24 +232,26 @@ namespace Neo.PowerShell
 		{
 			const int max = 6;
 			var tries = max;
-			while (tries > 0)
+			while (true)
 			{
 				try
 				{
 					action();
 					return;
 				}
-				catch (UnauthorizedAccessException)
+				catch (UnauthorizedAccessException e)
 				{
+					if (tries-- <= 0)
+						throw new Exception("Action failed: " + actionDescription, e);
 					Thread.Sleep(1000 * max - tries + 1);
-					tries--;
 				}
 				catch (IOException e)
 				{
 					if (!PromptChoice(actionDescription, e))
 					{
 						Thread.Sleep(1000 * max - tries + 1);
-						tries--;
+						if (tries-- <= 0)
+							throw new Exception("Action failed: " + actionDescription, e);
 					}
 				}
 			}

@@ -48,7 +48,7 @@ namespace Neo.PowerShell.Directory
 			{
 				if (ShouldProcess(target.Directory.FullName, "create directory"))
 				{
-					target.Directory.Create();
+					Notify.SafeIO(target.Directory.Create, $"Erstelle Verzeichnis: {target.Directory.FullName}");
 					target.Refresh();
 				}
 			}
@@ -99,7 +99,7 @@ namespace Neo.PowerShell.Directory
 			if (target.Exists &&
 					source.Length == target.Length &&
 					Stuff.CompareFileTime(source.CreationTimeUtc, target.CreationTimeUtc) &&
-					Stuff.CompareFileTime(source.LastAccessTimeUtc, target.LastAccessTimeUtc) &&
+					// Stuff.CompareFileTime(source.LastAccessTimeUtc, target.LastAccessTimeUtc) && is modified during read!
 					Stuff.CompareFileTime(source.LastWriteTimeUtc, target.LastWriteTimeUtc))
 				return;
 

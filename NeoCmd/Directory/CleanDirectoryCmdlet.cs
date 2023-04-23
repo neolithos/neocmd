@@ -5,9 +5,7 @@ using System.Management.Automation;
 
 namespace Neo.PowerShell.Directory
 {
-	///////////////////////////////////////////////////////////////////////////////
-	/// <summary></summary>
-	[Cmdlet(VerbsCommon.Clear, "directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
+	[Cmdlet(VerbsCommon.Clear, "Directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
 	public sealed class CleanDirectoryCmdlet : NeoCmdlet
 	{
 		private long bytesDeleted;

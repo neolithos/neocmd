@@ -6,9 +6,7 @@ using ICSharpCode.SharpZipLib.Zip;
 
 namespace Neo.PowerShell.Backup
 {
-	///////////////////////////////////////////////////////////////////////////////
-	/// <summary></summary>
-	[Cmdlet(VerbsData.Restore, "directory")]
+	[Cmdlet(VerbsData.Restore, "Directory")]
 	public sealed class RestoreBackupCmdlet : NeoCmdlet
 	{
 		#region -- ProcessRecord ----------------------------------------------------------

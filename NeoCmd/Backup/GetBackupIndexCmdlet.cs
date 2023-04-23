@@ -3,10 +3,8 @@ using System.Management.Automation;
 
 namespace Neo.PowerShell.Backup
 {
-	///////////////////////////////////////////////////////////////////////////////
-	/// <summary></summary>
 	[
-	Cmdlet(VerbsCommon.Get, "backupindex"),
+	Cmdlet(VerbsCommon.Get, "BackupIndex"),
 	OutputType(typeof(FileIndexItem))
 	]
 	public sealed class GetBackupIndexCmdlet : NeoCmdlet

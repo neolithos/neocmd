@@ -1,18 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Neo.PowerShell.Directory
 {
-	///////////////////////////////////////////////////////////////////////////////
-	/// <summary></summary>
 	[Cmdlet(VerbsCommunications.Send, "Directory")]
 	public sealed class SendDirectoryCmdlet : PSCmdlet
 	{

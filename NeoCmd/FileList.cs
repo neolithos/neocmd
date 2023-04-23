@@ -11,13 +11,12 @@ namespace Neo.PowerShell
 {
 	#region -- class FileFilterRules ----------------------------------------------------
 
-	///////////////////////////////////////////////////////////////////////////////
 	/// <summary>Filterliste für Dateien</summary>
 	public sealed class FileFilterRules
 	{
-		private static readonly Regex[] regexEmpty = new Regex[0];
+		private static readonly Regex[] regexEmpty = Array.Empty<Regex>();
 
-		private Regex[] filterRules;   // Regelwerk
+		private readonly Regex[] filterRules;   // Regelwerk
 
 		/// <summary>Erzeugt eine Dateifilterliste</summary>
 		/// <param name="filter">Filterdefinitionen</param>
@@ -26,7 +25,7 @@ namespace Neo.PowerShell
 			this.filterRules = filter == null ? regexEmpty : (from cur in filter select CreatePathRegex(cur)).Where(c => c != null).ToArray();
 		} // ctor
 
-		private Regex CreatePathRegex(string value)
+		private static Regex CreatePathRegex(string value)
 		{
 			if (String.IsNullOrEmpty(value))
 				return null;

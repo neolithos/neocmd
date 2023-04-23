@@ -5,12 +5,9 @@ using System.Threading.Tasks;
 
 namespace Neo.PowerShell.Directory
 {
-	///////////////////////////////////////////////////////////////////////////////
-	/// <summary></summary>
-	[Cmdlet(VerbsData.Sync, "directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
+	[Cmdlet(VerbsData.Sync, "Directory", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Low)]
 	public sealed class SyncDirectoryCmdlet : NeoCmdlet
 	{
-		private static readonly FileSystemInfo[] emptyFileSystemInfos = new FileSystemInfo[0];
 		private FileFilterRules rules;
 		
 		private int sourceOffset;
@@ -117,7 +114,7 @@ namespace Neo.PowerShell.Directory
 
 			// get the files of the current directories
 			var sourceItems = GetFileItems(source);
-			var targetItems = target.Exists ? target.GetFileSystemInfos() : emptyFileSystemInfos;
+			var targetItems = target.Exists ? target.GetFileSystemInfos() : Array.Empty<FileSystemInfo>();
 
 			if (!copyStarted)
 			{

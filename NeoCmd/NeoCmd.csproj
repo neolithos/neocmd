@@ -2,13 +2,23 @@
 <Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
 	<PropertyGroup>
 		<ProjectGuid>{12A2A428-E2D1-46FB-ACA5-F90C6BC0D1CC}</ProjectGuid>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net7.0-windows</TargetFramework>
 		<RootNamespace>Neo.PowerShell</RootNamespace>
+	</PropertyGroup>
+	<PropertyGroup>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Remove="Properties\AssemblyInfo.cs" />
 		<Compile Remove="Properties\AssemblyInfoGlobal.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Remove="NeoCmd.psd1" />
+	</ItemGroup>
+	<ItemGroup>
+		<Content Include="NeoCmd.psd1">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 	<ItemGroup>
 		<None Include="Properties\AssemblyInfo.cs" />

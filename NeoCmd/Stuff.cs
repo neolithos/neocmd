@@ -166,7 +166,7 @@ namespace Neo.PowerShell
 					if (file.Exists)
 						notify.SafeIO(file.Delete, msg);
 
-					notify.SafeIO(() => tempFile.MoveTo(file.FullName), msg);
+					notify.SafeIO(() => File.Move(tempFile.FullName, file.FullName), msg);
 
 					file.Refresh();
 				}

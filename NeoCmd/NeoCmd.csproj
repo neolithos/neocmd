@@ -1,21 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
-  <PropertyGroup>
-    <ProjectGuid>{12A2A428-E2D1-46FB-ACA5-F90C6BC0D1CC}</ProjectGuid>
-		<TargetFramework>netcoreapp3.0</TargetFramework>
+	<PropertyGroup>
+		<ProjectGuid>{12A2A428-E2D1-46FB-ACA5-F90C6BC0D1CC}</ProjectGuid>
+		<TargetFramework>net7.0</TargetFramework>
 		<RootNamespace>Neo.PowerShell</RootNamespace>
-  </PropertyGroup>
-  <ItemGroup>
-    <Compile Remove="Properties\AssemblyInfo.cs" />
-    <Compile Remove="Properties\AssemblyInfoGlobal.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Properties\AssemblyInfo.cs" />
-    <None Include="Properties\AssemblyInfoGlobal.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="SharpZipLib" Version="1.2.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.7.0" />
-    <PackageReference Include="System.Management.Automation" Version="6.2.3" />
-  </ItemGroup>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+	<ItemGroup>
+		<Compile Remove="Properties\AssemblyInfo.cs" />
+		<Compile Remove="Properties\AssemblyInfoGlobal.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="Properties\AssemblyInfo.cs" />
+		<None Include="Properties\AssemblyInfoGlobal.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="SharpZipLib" Version="1.4.2" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
+		<PackageReference Include="System.Management.Automation" Version="7.3.4" />
+	</ItemGroup>
 </Project>
